@@ -1,0 +1,10 @@
+email: VALID_EMAIL_ADDRESS@WEBSITE.INVALID
+search terms: pizza
+delivery routine (1 is daily, 2 is every other day, etc. 0 is never): 1
+send me this many top items: 3
+
+keywords_important: pizza, artisan
+keywords_positive: kitchen, chef, wood-fired, handcrafted
+keywords_good:
+keywords_meh: driver, delivery, manager, assistant, dishwasher, line cook
+keywords_negative: murder, death, kill, domino's
