@@ -1,4 +1,8 @@
 # bobby_scobbles
+
+     Scobble, (v.): To devour hastily.
+          -Urban Dictionary
+
 Job boards crawler that emails top-ranked job postings.
 
 Scoring method:
