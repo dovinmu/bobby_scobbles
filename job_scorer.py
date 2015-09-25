@@ -2,22 +2,23 @@ import pandas as pd
 import re
 import random
 import time
+import math
 import datetime
 import gmail_client
 import json
 import os
 from sendEmail import CreateMessage, SendMessage
+from difflib import SequenceMatcher
 
 #TODO: use NLTK or another language parser or regex because this is terrible. 
 #and with CL I even need to handle stupid weird unicode characters
 def clean_text(text):
-    return text.lower().replace('. ',' . ').replace(',','').replace('!','').replace('\n',' ').replace('(','').replace(')','').replace('\xa0',' ').replace('"','').replace('?','').replace(';','')
-    title = result[1].title.lower().replace('.','').replace(',','').replace('!','').replace('\n',' ').replace('(','').replace(')','').replace('\xa0',' ').replace('"','').replace('?','').replace(';','').replace('*','')
+    return text.lower().replace('.',' ').replace(',',' ').replace('!',' ').replace('(',' ').replace(')',' ').replace('"',' ').replace('?',' ').replace(';',' ').replace('*', ' ')
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
 
 ### research studies ###
-#df = pd.DataFrame.from_csv('craigslist_unscored_research_studies')
-#df['pay'] = 0
-
 def is_research_study(item):
     return True
 
@@ -78,65 +79,75 @@ def update_word_bucket(df):
             word_bucket[word] = 1
         word_to_last_url[word] = result
 
-def score_dev_jobs(df, keywords):
+def score_string(s, keywords, scalar=1.0):
     keywords_important = keywords['keywords_important']
     keywords_pos = keywords['keywords_positive']
     keywords_good = keywords['keywords_good']
     keywords_meh = keywords['keywords_meh']
     keywords_neg = keywords['keywords_negative']
-    
-    # time to score the job postings!
-    
-    scores = []
-    #for result in df.items():
-    for result in df.iterrows():
-        text = clean_text(result[1].text)
-        title = clean_text(result[1].title)
-        score = 0
-        for kw in keywords_important:
-            if kw in text:
-                score += 4
-            if kw in title:
-                score += 8
+    score = 0
+    for kw in keywords_important:
+        if kw in s:
+            score += 4 * scalar
+    for kw in keywords_pos:
+        if kw in s:
+            score += 1 * scalar
+    for kw in keywords_good:
+        if kw in s:
+            score += 0.25 * scalar
+    for kw in keywords_meh:
+        if kw in s:
+            score -= 0.25 * scalar
+    for kw in keywords_neg:
+        if kw in s:
+            score -= 1 * scalar
+    score += sigmoid(len(s))
+    return score
 
-        for kw in keywords_pos:
-            if kw in text:
-                score += 1
-            if kw in title:
-                score += 2
+def score_job(job, keywords):
+    text = clean_text(job.text)
+    paragraphs = text.split('\n')
+    title = clean_text(job.title)
+    scores = {}
+    for p in paragraphs:
+        scores[p] = score_string(p, keywords)
+    highest_par = ''
+    highest = 0
+    total = 0
+    for p in paragraphs:
+        if scores[p] > highest:
+            highest_par = p
+            highest = scores[p]
+        total += scores[p]
+    total += score_string(title, keywords, scalar=2.0)
+    score = total / len(paragraphs) + scores[highest_par]
+    job = (job.title, job.URL, job.text.strip(), job.date, score, highest_par, text)
+    return job
 
-        for kw in keywords_good:
-            if kw in text:
-                score += 0.25
-            if kw in title:
-                score += 0.5
-
-        for kw in keywords_meh:
-            if kw in text:
-                score -= 0.25
-            if kw in title:
-                score -= 0.5
-
-        for kw in keywords_neg:
-            if kw in text:
-                score -= 1
-            if kw in title:
-                score -= 2
-
-        scores.append((result[1].title, result[1].URL, result[1].text.strip(), result[1].date, score))
-    df = pd.DataFrame(scores, columns=['title', 'URL','text','date', 'score'])
-#    print(df.head())
-    return df
 
 def concat_item(item):
-    text = item.text.iloc[0].replace('\n\n\n','\n').replace('\n\n','\n')
-    s = '\n'  + item.title.iloc[0] + '\tscore: ' + str(item.score.iloc[0]) + '\t' + str(item.date.iloc[0])  + '\n' + ' - ' * 20 + '\n' 
-    if len(text) > 1000:
-        s += text[:text.find(' ',1000)]
-        s += '[...]'
+    s = '\n'  + item.title + '\tscore: ' + str(item.score) + '\t' + str(item.date)  + '\n' + ' - ' * 20 + '\n' 
+
+    if item.best_paragraph.strip() != '':
+        try:        
+            i = item.cleaned_text.index(item.best_paragraph)
+        except:
+            i = 0
+        text = item.text[i:]
+        if len(text) > 1000:
+            ii = item.text.find(' ',i+1000)
+            s += item.text[i:ii]
+            s += '[...]'
+        else:
+            s += text
     else:
-        s += text
-    s += '\n' + item.URL.iloc[0] + '\n\n'
+        text = item.text
+        if len(text) > 1000:
+            s += text[:text.find(' ',1000)]
+            s += '[...]'
+        else:
+            s += text
+    s += '\n' + item.URL + '\n\n'
     return s
 
 class PostingsProcessor():
@@ -144,12 +155,10 @@ class PostingsProcessor():
         self.user = user
         self.valid = True
         #get all the .csv files in this folder and turn them into dataframes
-    
         if os.getcwd().split('/')[-1] != self.user:
-            print('Need to be in user folder %s')
+            print('Need to be in user folder %s' % user)
             self.invalidate()       
             return
-
         files = os.listdir()
         csvs = [x for x in files if '.csv' in x and '~' not in x and '.scored' not in x]
         if len(csvs) == 0:
@@ -183,40 +192,60 @@ class PostingsProcessor():
             print('PostingsProcessor object is invalid; try reinstantiating')
             return
         print('Scoring %s...' %self.user)
-        self.df = score_dev_jobs(self.df, self.j)
+        results = []
+        for job in self.df.iterrows():
+            results.append(score_job(job[1], self.j))
+        self.df = pd.DataFrame(results, columns=['title', 'URL','text','date', 'score', 'best_paragraph', 'cleaned_text'])
         self.df.sort('score',inplace=True,ascending=False)
 
-    def send_summary(self):
+    def send_summary(self,test=False):
         content = self.generate_user_message()
-        self.send_message(content)
+        self.send_message(content,test)
         
     def generate_user_message(self, only_bestof=True):
         if not self.valid:
             print('PostingsProcessor object is invalid; try reinstantiating')
             return
         content = '\n'
-        content += '*' * 70 + '\nCraigslist search results for "' + self.search + '", scored using word-counting\n' + '*' * 70 + '\n\n'
+        content += '*' * 60 + '\nSearch results for "' + self.search + '", scored using word-counting\n' + '*' * 60 + '\n\n'
         content += '=' * 50 + '\n\tHighest scoring:\n'  + '=' * 50
-        for i in range(self.sendCount):
-            content += concat_item(self.df[i:i+1])
+        i = 0
+        added_posts = []
+        for n in range(self.sendCount):
+            for post in added_posts:
+                if SequenceMatcher(None, self.df.iloc[i].text, post).ratio() > 0.8:
+                    i += 1
+            if i < len(self.df):
+                content += concat_item(self.df.iloc[i])
+                added_posts.append(self.df.iloc[i].text)
+                i += 1
         if not only_bestof:
             content += '\n'  + '=' * 50 + '\n\tWorst scoring:\n' + '=' * 50
-            content += concat_item(self.df[-1:])
+            content += concat_item(self.df.iloc[-1])
             content += '\n' + '=' * 50 + '\n\tRandom entries\n'  + '=' * 50 + '\n'
             for n in range(3):
                 i = random.randint(0,len(self.df)-1)
-                content += concat_item(self.df[i:i+1])
+                content += concat_item(self.df.iloc[i])
         content += '\n\n\nScobble, (v.): To devour hastily.\n-Urban Dictionary'
         return content
 
-    def send_message(self,content):
+    def send_message(self,content,test=False):
         if not self.valid:
             print('PostingsProcessor object is invalid; try reinstantiating')
             return
         service = gmail_client.get_service()
         message = CreateMessage('Bob the Job Scobbler', self.to, datetime.date.today().strftime('Jobs report for %A, %B %d, %Y'), content)
-        SendMessage(service, 'bob.the.job.scobbler@gmail.com', message)
-        print('Sent mail at ' + time.ctime())
+        if test:
+            fname = self.user + '.email'
+            with open(fname, 'w') as f:
+                f.write(datetime.date.today().strftime('Jobs report for %A, %B %d, %Y\n'))
+                f.write(time.ctime())
+                f.write('\n\n')
+                f.write(content)
+            print('Email length: %d, wrote to %s' % (len(content), fname))
+        else:
+            SendMessage(service, 'bob.the.job.scobbler@gmail.com', message)
+            print('Sent mail at ' + time.ctime())
 
     def save(self):
         if not self.valid:
@@ -226,16 +255,19 @@ class PostingsProcessor():
         self.df.to_csv(fname)
         print('Saved %s to %s' % (fname, os.getcwd()))
     
-def score_all():
+def score_all(test=False):
     #iterate through all user folders
     os.chdir('users')
     users = os.listdir()
     for user in users:
+        if not test and user == 'example':
+            continue
         os.chdir(user)
         pp = PostingsProcessor(user)
         pp.process_jobs()
-        pp.send_summary()
-        pp.save()
+        pp.send_summary(test)
+        if not test:
+            pp.save()
         os.chdir('..')
     os.chdir('..')
     
