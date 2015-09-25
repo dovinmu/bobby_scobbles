@@ -1,7 +1,7 @@
 import os
 from terms_to_json import convert
 
-def update():
+def update(test=False):
     os.chdir('users')
     users = os.listdir()
     for user in users:
@@ -15,6 +15,6 @@ def update():
         if len(txts) != 1:
             print("Error! more than one .txt file in %s")
         else:
-            convert(txts[0])
+            convert(txts[0],test=test)
         os.chdir('..')
     os.chdir('..')
