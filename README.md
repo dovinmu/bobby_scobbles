@@ -1,4 +1,4 @@
-# bobby_scobbles
+# Bob the Job Scobbler
 
      Scobble, (v.): To devour hastily.
           -Urban Dictionary
