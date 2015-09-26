@@ -17,12 +17,12 @@ def wrangle(test=False):
         jsons = [x for x in files if '.json' in x and '.old' not in x and '~' not in x]
         if len(jsons) != 1:
             print('Wrong number of jsons: %d, %s' % (len(jsons), os.getcwd()))
-            continue
+            #continue
         with open(jsons[0]) as f:
             j = json.load(f)
         queries = []
         for query in j['search']:
-            queries.append(query)
+            queries.append(query.strip())
         craigslist_scraper.scrape(queries,test=test)
         indeed_scraper.scrape(queries,test=test)
         if user == 'rowan':
@@ -30,8 +30,6 @@ def wrangle(test=False):
         os.chdir('..')
     os.chdir('..')
 
-def main():
+if __name__ == '__main__':
     wrangle(True)
 
-if __name__ == '__main__':
-    main()

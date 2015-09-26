@@ -13,7 +13,6 @@ def scrape(queries, list_to_search='jjj', daysBack=1, test=False):
     query += queries[-1].strip()
     params = {'query':query, 'sort':'date'}
     list_to_search = '/search/' + list_to_search
-    fname = 'craigslist_' + query + '.csv'
     
     r = requests.get(base_url + list_to_search, params=params)
     html = BeautifulSoup(r.text, 'html.parser')
@@ -27,23 +26,34 @@ def scrape(queries, list_to_search='jjj', daysBack=1, test=False):
         if date < today - 1:
             continue
         url = base_url + job.find('a', attrs={'class':'i'}).get('href')
-        rj = requests.get( url )
+        try:
+            rj = requests.get( url )
+        except:
+            print('could not connect to %s' % url)
+            continue
         #print('Got %s' % rj.url)
         raw = rj.text
-        html = BeautifulSoup(raw, 'html.parser')        
-        text = html.find('section', attrs={'id':'postingbody'}).text
-        date = html.find(attrs={'class':'postinginfo','id':'display-date'}).time.text
+        html = BeautifulSoup(raw, 'html.parser')
+        try:
+            text = html.find('section', attrs={'id':'postingbody'}).text
+            date = html.find(attrs={'class':'postinginfo','id':'display-date'}).time.text
+        except:
+            continue
         results.append((html.find('title').text, url, text.strip(), date))        
         raw_html.append(html)
         if test:
             break
         else:
             time.sleep(random.randint(1,5))
-
+    
+    fname = 'craigslist_' + query.replace('+','_') + '.csv'
     if len(results) > 0:
         df = pd.DataFrame(results, columns=['title','URL','text', 'date'])
-        if not test:
+        if test:
+            print('found %d jobs' % len(results))
+        else:
             df.to_csv(fname)
             print('wrote to %s' % fname)
-
+    else:
+        print('no jobs found')
 

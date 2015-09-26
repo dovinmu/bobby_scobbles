@@ -11,7 +11,7 @@ def scrape(test=False):
     for item in items:
         text = BeautifulSoup(item.description.text).text
         results.append((item.title.text, item.link.text, text, 'nan'))
-        print('Processed %s' % item.title.text)
+        #print('Processed %s' % item.title.text)
 
     fname = 'python.org.csv'
     df = pd.DataFrame(results, columns=['title','URL','text', 'date'])

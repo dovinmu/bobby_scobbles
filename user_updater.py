@@ -18,3 +18,6 @@ def update(test=False):
             convert(txts[0],test=test)
         os.chdir('..')
     os.chdir('..')
+
+if __name__ == '__main__':
+    update()

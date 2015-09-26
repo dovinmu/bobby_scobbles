@@ -4,35 +4,51 @@ import requests
 import time
 import datetime
 import random
+from urllib.parse import urlparse
 base_url = 'http://www.indeed.com'
-limit = 10
-locations = ['Seattle', 'NYC', 'San Francisco', 'Portland, OR']
+limit = 100
+locations = ['Seattle']
 
 def scrape(queries, daysBack=1, test=False):
+    fail = [0,0]
     query = ''
     for q in queries[:-1]:
-        query += q.strip() + '+'
-    query += queries[-1].strip()
+        query += q.strip().replace(' ','+') + ','
+    query += queries[-1].strip().replace(' ','+')
     results = []
     raw_html = []
     for loc in locations:
         params = {'q':query, 'l':loc, 'sort':'date', 'limit':limit, 'fromage':daysBack}
-        r = requests.get(base_url + '/jobs', params=params)
+        try:
+            r = requests.get(base_url + '/jobs', params=params)
+        except:
+            print('Failed to get page with params=', params)
+            print('Building url by hand')
+            url = base_url + '/jobs?'
+            for key in params.keys():
+                url += key + '=' + str(params[key]) + '&'
+            url = url[:-1]
+            r = requests.get( url )
         html = BeautifulSoup(r.text, 'html.parser')
         jobs = html.find_all('div', attrs={'class':'  row result'})
+        if len(jobs) == 0:
+            params['fromage'] += 1
+            r = requests.get(base_url + '/jobs', params=params)
+            html = BeautifulSoup(r.text, 'html.parser')
+            jobs = html.find_all('div', attrs={'class':'  row result'})
         print('Got %d jobs from %s' % (len(jobs), r.url))
-        today = datetime.date.today()
         for job in jobs:
             url = base_url + job.find('a').get('href')
             try:
                 rj = requests.get( url )
-            except requests.exceptions.RequestException:
-                print('Could not get %s, trying again' % url)
-                try:
-                    rj = requests.get( url )
-                except requests.exceptions.RequestException:
-                    print('Could not get %s, giving up' % url)
-                    continue
+            except:
+                #print('Could not get %s, trying again' % url)
+                print('failed to connect to %s' % url)
+                #try:
+                #    rj = requests.get( url )
+                #except requests.exceptions.RequestException:
+                #    print('Could not get %s, giving up' % url)
+                continue
             #print('Got %s' % rj.url)
             html = BeautifulSoup(rj.text)
             for script in html(['script','style']):
@@ -56,8 +72,6 @@ def scrape(queries, daysBack=1, test=False):
             print('Wrote %d results to %s' % (len(df),fname))
         
 
-def main():
-    scrape(['pizza'], test=True)
-
 if __name__ == "__main__":
-    main()
+    scrape(['pizza cook','artisan'], test=False)
+
