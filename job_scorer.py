@@ -121,12 +121,13 @@ def score_job(job, keywords):
         total += scores[p]
     total += score_string(title, keywords, scalar=2.0)
     score = total / len(paragraphs) + scores[highest_par]
+    score /= 3.
     job = (job.title, job.URL, job.text.strip(), job.date, score, highest_par, text)
     return job
 
 
 def concat_item(item):
-    s = '\n'  + item.title + '\tscore: ' + str(item.score) + '\t' + str(item.date)  + '\n' + ' - ' * 20 + '\n' 
+    s = '\n'  + item.title + '\tscore: %.2f' % item.score + '\t' + str(item.date)  + '\n' + ' - ' * 20 + '\n' 
 
     if item.best_paragraph.strip() != '':
         try:        
@@ -170,6 +171,7 @@ class PostingsProcessor():
             dfs.append(pd.DataFrame.from_csv(csv))
         self.df = pd.concat(dfs)
         self.df = self.df.drop_duplicates(subset=['text'])
+        self.df['text'] = self.df['text'].astype(str)
         
         # extract keywords from the json file
         jsons = [x for x in files if '.json' in x and '.old' not in x and '~' not in x]
@@ -193,8 +195,11 @@ class PostingsProcessor():
             return
         print('Scoring %s...' %self.user)
         results = []
-        for job in self.df.iterrows():
-            results.append(score_job(job[1], self.j))
+        #for job in self.df.iterrows():
+            #results.append(score_job(job[1], self.j))
+        for i in range(len(self.df)):
+            job = self.df.iloc[i]
+            results.append(score_job(job, self.j))
         self.df = pd.DataFrame(results, columns=['title', 'URL','text','date', 'score', 'best_paragraph', 'cleaned_text'])
         self.df.sort('score',inplace=True,ascending=False)
 
@@ -271,6 +276,8 @@ def score_all(test=False):
         os.chdir('..')
     os.chdir('..')
     
+if __name__ == '__main__':
+    score_all(True)
     # todo: move towards hypothesis-testing and attribute-determining method instead of just counting tokens. then a general classifier will attempt to classify into 'boring', 'unexpected', and 'interesting'
     ## example hypotheses: this posting wants a senior developer, python is the most important language for this job, this job is temporary or part-time. e.g. predictions that have confidence intervals
     ## example attribute: lots of buzzspeak, too many exclamation marks, word or phrase is used too much. easily identified properties of the posting itself 

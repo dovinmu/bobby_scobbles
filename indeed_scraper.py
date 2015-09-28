@@ -62,7 +62,7 @@ def scrape(queries, daysBack=1, test=False):
             results.append((title, url, text, date))
             if test:
                 break
-    fname = 'indeed_' + query.replace('+','_') + '.csv'
+    fname = 'indeed_' + query.replace('+','-').replace(',','_') + '.csv'
     if len(results) > 0:
         df = pd.DataFrame(results, columns=['title','URL','text', 'date'])
         if test:
