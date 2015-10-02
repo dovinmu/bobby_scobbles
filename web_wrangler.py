@@ -31,5 +31,10 @@ def wrangle(test=False):
     os.chdir('..')
 
 if __name__ == '__main__':
-    wrangle(True)
-
+    import sys
+    print(sys.argv)
+    if len(sys.argv) == 1:
+        wrangle()
+    else:
+        print(sys.argv[1:])
+        wrangle(sys.argv[1] == 'True')

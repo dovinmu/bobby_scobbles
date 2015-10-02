@@ -4,10 +4,8 @@ import random
 import time
 import math
 import datetime
-import gmail_client
 import json
 import os
-from sendEmail import CreateMessage, SendMessage
 from difflib import SequenceMatcher
 
 #TODO: use NLTK or another language parser or regex because this is terrible. 
@@ -120,7 +118,10 @@ def score_job(job, keywords):
             highest = scores[p]
         total += scores[p]
     total += score_string(title, keywords, scalar=2.0)
-    score = total / len(paragraphs) + scores[highest_par]
+    if scores.get(highest_par) is not None:
+        score = total / len(paragraphs) + scores[highest_par]
+    else:
+        score = total / len(paragraphs)
     score /= 3.
     job = (job.title, job.URL, job.text.strip(), job.date, score, highest_par, text)
     return job
@@ -163,7 +164,7 @@ class PostingsProcessor():
         files = os.listdir()
         csvs = [x for x in files if '.csv' in x and '~' not in x and '.scored' not in x]
         if len(csvs) == 0:
-            print('No csv files to analyze!')
+            print('No csv files in %s to analyze!' % user)
             self.invalidate()
             return
         dfs = []
@@ -174,17 +175,16 @@ class PostingsProcessor():
         self.df['text'] = self.df['text'].astype(str)
         
         # extract keywords from the json file
-        jsons = [x for x in files if '.json' in x and '.old' not in x and '~' not in x]
-        if len(jsons) != 1:
-            print('Cannot score %s, number of valid keyword files=%d' % (os.getcwd(),len(jsons)))
-            self.invalidate()            
-            return
-        with open(jsons[0],'r') as f:
+        json_fname = user + '.json'
+        with open(json_fname) as f:
             self.j = json.load(f)
             self.to = self.j['email'][0]
             self.delivery = int(self.j['delivery'][0])
             self.sendCount = int(self.j['send'][0])
-            self.search = self.j['search'][0]
+            self.search = ''
+            for term in self.j['search'][:-1]:
+                self.search += term.strip() + ', '
+            self.search += self.j['search'][-1].strip()
 
     def invalidate(self):
         self.valid = False
@@ -212,17 +212,23 @@ class PostingsProcessor():
             print('PostingsProcessor object is invalid; try reinstantiating')
             return
         content = '\n'
-        content += '*' * 60 + '\nSearch results for "' + self.search + '", scored using word-counting\n' + '*' * 60 + '\n\n'
         content += '=' * 50 + '\n\tHighest scoring:\n'  + '=' * 50
         i = 0
-        added_posts = []
+        self.added_posts = []
+        try:
+            with open(self.user + '.sent') as f:
+                self.added_posts = f.read().split('<+>')
+                if len(self.added_posts) > self.sendCount * 3:
+                    self.added_posts = self.added_posts[self.sendCount:]
+        except:
+            pass
         for n in range(self.sendCount):
-            for post in added_posts:
-                if SequenceMatcher(None, self.df.iloc[i].text, post).ratio() > 0.8:
+            for post in self.added_posts:
+                if SequenceMatcher(None, self.df.iloc[i].text, post.strip()).ratio() > 0.8:
                     i += 1
             if i < len(self.df):
                 content += concat_item(self.df.iloc[i])
-                added_posts.append(self.df.iloc[i].text)
+                self.added_posts.append(self.df.iloc[i].text)
                 i += 1
         if not only_bestof:
             content += '\n'  + '=' * 50 + '\n\tWorst scoring:\n' + '=' * 50
@@ -231,27 +237,24 @@ class PostingsProcessor():
             for n in range(3):
                 i = random.randint(0,len(self.df)-1)
                 content += concat_item(self.df.iloc[i])
-        content += '\n\n\nScobble, (v.): To devour hastily.\n-Urban Dictionary'
+        content += '\n\n\n\tScobble, (v.): To devour hastily.\n\t\t-Urban Dictionary'
         return content
 
-    def send_message(self,content,test=False):
+    def save_message(self,content,test=False):
         if not self.valid:
             print('PostingsProcessor object is invalid; try reinstantiating')
             return
-        service = gmail_client.get_service()
-        message = CreateMessage('Bob the Job Scobbler', self.to, datetime.date.today().strftime('Jobs report for %A, %B %d, %Y'), content)
-        if test:
-            fname = self.user + '.email'
-            with open(fname, 'w') as f:
-                f.write(datetime.date.today().strftime('Jobs report for %A, %B %d, %Y\n'))
-                f.write(time.ctime())
-                f.write('\n\n')
-                f.write(content)
-            print('Email length: %d, wrote to %s' % (len(content), fname))
-        else:
-            SendMessage(service, 'bob.the.job.scobbler@gmail.com', message)
-            print('Sent mail at ' + time.ctime())
-
+        
+        with open(self.user + '.email', 'w') as f:
+            f.write('\n\n')
+            f.write(content)
+            f.write('\n\nGenerated '+time.ctime())
+        with open(self.user + '.to.be.sent','w') as f:
+            for post in self.added_posts:
+                post = post.replace('<+>','')
+                f.write(post.strip() + '\n<+>\n')
+        print('Email length: %d, wrote to %s' % (len(content), self.user + '.email'))
+        
     def save(self):
         if not self.valid:
             print('PostingsProcessor object is invalid; try reinstantiating')
@@ -270,7 +273,8 @@ def score_all(test=False):
         os.chdir(user)
         pp = PostingsProcessor(user)
         pp.process_jobs()
-        pp.send_summary(test)
+        content = pp.generate_user_message()
+        pp.save_message(content,test=test)
         if not test:
             pp.save()
         os.chdir('..')

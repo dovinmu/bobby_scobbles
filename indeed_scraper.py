@@ -50,7 +50,10 @@ def scrape(queries, daysBack=1, test=False):
                 #    print('Could not get %s, giving up' % url)
                 continue
             #print('Got %s' % rj.url)
-            html = BeautifulSoup(rj.text)
+            try:
+                html = BeautifulSoup(rj.text)
+            except:
+                print('Failed to load webpage text into BeautifulSoup:\n' + rj.text[:100])
             for script in html(['script','style']):
                 script.extract()
             raw_html.append(html)

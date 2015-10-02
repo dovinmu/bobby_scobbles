@@ -12,10 +12,13 @@ def update(test=False):
 
         #convert keyword file to .json equivalent
         txts = [x for x in files if '.txt' in x and '~' not in x]
-        if len(txts) != 1:
-            print("Error! more than one .txt file in %s")
+        if len(txts) > 1:
+            print("Error! more than one .txt file in %s"%user)
+        elif len(txts) == 0:
+            print("No .txt file in %s"%user)
         else:
-            convert(txts[0],test=test)
+            with open(txts[0]) as f:
+                convert(f.read().split('\n'),user,test=test)
         os.chdir('..')
     os.chdir('..')
 
