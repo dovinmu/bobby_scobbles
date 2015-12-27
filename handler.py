@@ -42,16 +42,18 @@ except:
     fname = os.path.split(e[2].tb_frame.f_code.co_filename)[1]
     print(e[0], fname, e[2].tb_lineno)
 os.chdir(wd_start)
-print('~emailer~')
-try:
-    import gmail_client
-    gmail_client.send_all()
-except:
-    had_error = True
-    print('gmail_client.py had an error')
-    e = sys.exc_info()
-    fname = os.path.split(e[2].tb_frame.f_code.co_filename)[1]
-    print(e[0], fname, e[2].tb_lineno)
+
+if not had_error:    
+    print('~emailer~')
+    try:
+        import gmail_client
+        gmail_client.send_all()
+    except:
+        had_error = True
+        print('gmail_client.py had an error')
+        e = sys.exc_info()
+        fname = os.path.split(e[2].tb_frame.f_code.co_filename)[1]
+        print(e[0], fname, e[2].tb_lineno)
 
 if had_error:
    print("Somebody has got to get these monkey flippin' errors off this Monday-to-Friday software!") #TODO send a special email

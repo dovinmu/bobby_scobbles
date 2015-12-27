@@ -14,11 +14,7 @@ def wrangle(test=False):
         os.chdir(user)
         files = os.listdir()
         csvs = [x for x in files if '.csv' in x]
-        jsons = [x for x in files if '.json' in x and '.old' not in x and '~' not in x]
-        if len(jsons) != 1:
-            print('Wrong number of jsons: %d, %s' % (len(jsons), os.getcwd()))
-            #continue
-        with open(jsons[0]) as f:
+        with open(user + '.json') as f:
             j = json.load(f)
         queries = []
         for query in j['search']:
@@ -32,9 +28,8 @@ def wrangle(test=False):
 
 if __name__ == '__main__':
     import sys
-    print(sys.argv)
-    if len(sys.argv) == 1:
-        wrangle()
+    if len(sys.argv) > 1:
+        wrangle(sys.argv[1] == 'test')
     else:
-        print(sys.argv[1:])
-        wrangle(sys.argv[1] == 'True')
+        wrangle()
+

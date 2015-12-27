@@ -23,4 +23,8 @@ def update(test=False):
     os.chdir('..')
 
 if __name__ == '__main__':
-    update()
+    import sys
+    if len(sys.argv) > 1:
+        update(sys.argv[1] == 'test')
+    else:
+        update()

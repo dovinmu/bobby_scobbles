@@ -6,9 +6,13 @@ from __future__ import print_function
 import httplib2
 import os
 import time
-
+import datetime
+import sys
+import traceback
+import json
 from sendEmail import CreateMessage,SendMessage
 from apiclient import discovery
+
 import oauth2client
 from oauth2client import client
 from oauth2client import tools
@@ -59,52 +63,49 @@ def send_message(to, content):
     service = get_service()
     message = CreateMessage('Bob the Job Scobbler', to, datetime.date.today().strftime('Jobs report for %A, %B %d, %Y'), content)
     SendMessage(service, 'bob.the.job.scobbler@gmail.com', message)
-    print('Sent mail at ' + time.ctime())
+    print('Sent mail at ' + time.ctime() + ' to ' + to)
 
-def send_all():
+def send_current_user(user=None):
+    if user is None:
+        user = os.getcwd().split('/')[-1]
+    try:
+        with open(user + '.email') as f:
+            content = f.read()
+        with open(user + '.json') as f:
+            j = json.loads(f.read())
+            to = j['email'][0]
+        send_message(to, content)
+    except:
+        print('Could not send email for %s' % user)
+        #traceback.print_last()
+        return
+    try:
+        with open(user + '.to.be.sent') as f:
+            with open(user + '.sent','w') as f_out:
+                f_out.write(f.read())
+    except:
+        print('Could not write sent email to .sent file for ' + user)
+
+def send_all(test=False):
     #iterate through all user folders
     os.chdir('users')
     users = os.listdir()
     for user in users:
-        if test and user not in ['rowan']:
+        if test and user not in ['example']:
+            continue
+        elif not test and user in ['example']:
             continue
         os.chdir(user)
-        try:
-            with open(user + '.email') as f:
-                content = f.read()
-            with open(user + '.json') as f:
-                j = json.loads(f.read())
-                to = j['email']
-            send_message(to, content)
-        except:
-            print('Could not send email for %s' % user)
-        
-        try:
-            with open(user + '.to.be.sent') as f:
-                with open(user + '.sent','w') as f_out:
-                    f_out.write(f.read())
-        except:
-            print('Could not write sent email to .sent file for ' + user)
+        send_current_user(user)
         os.chdir('..')
     os.chdir('..')
 
-def main():
-    """Shows basic usage of the Gmail API.
-
-    Creates a Gmail API service object and outputs a list of label names
-    of the user's Gmail account.
-    """
-    credentials = get_credentials()
-    http = credentials.authorize(httplib2.Http())
-    service = discovery.build('gmail', 'v1', http=http)
-
-    results = service.users().labels().list(userId='me').execute()
-    labels = results.get('labels', [])
-
-    if not labels:
-        print('No labels found.')
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        send_all(sys.argv[1] == "test")
     else:
-      print('Labels:')
-      for label in labels:
-        print(label['name'])
+        send_all()
+
+
+
 

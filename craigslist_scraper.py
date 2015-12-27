@@ -6,7 +6,7 @@ import datetime
 import random
 base_url = 'http://seattle.craigslist.org'
 
-def scrape(queries, list_to_search='jjj', daysBack=1, test=False):
+def scrape(queries, list_to_search='jjj', daysBack=1, test=False, return_df=False):
     query = ''
     for q in queries[:-1]:
         query += q.strip() + '+'
@@ -23,7 +23,7 @@ def scrape(queries, list_to_search='jjj', daysBack=1, test=False):
     today = datetime.date.today().day
     for job in jobs:
         date = int(job.find('time').text.split(' ')[1])
-        if date < today - 1:
+        if date < today - daysBack:
             continue
         url = base_url + job.find('a', attrs={'class':'i'}).get('href')
         try:
@@ -54,6 +54,8 @@ def scrape(queries, list_to_search='jjj', daysBack=1, test=False):
         else:
             df.to_csv(fname)
             print('wrote to %s' % fname)
+        if return_df:
+            return df
     else:
         print('no jobs found')
 
