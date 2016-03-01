@@ -78,6 +78,10 @@ def send_current_user(user=None):
     try:
         with open(user + '.email') as f:
             content = f.read()
+    except:
+        print('Could not find .email file for user {}'.format(user))
+        return
+    try:
         with open(user + '.json') as f:
             j = json.loads(f.read())
             to = j['email'][0]

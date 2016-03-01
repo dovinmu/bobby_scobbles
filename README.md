@@ -5,6 +5,19 @@
 
 Job boards crawler that emails top-ranked job postings.
 
+
+Dependencies:
+ * pandas
+ * BeautifulSoup
+ * httplib2
+ * eventlet
+ * Google API Client for Python (if you want to have email integration)
+ 
+Usage:
+ * Overall program flow is in handler.py.
+ * If you want the service to email you, you'll need to set up your own Gmail credentials 
+   (https://developers.google.com/gmail/api/) or other email method.
+
 Scoring method:
  * For each keyword in each keyword category, check if that keyword is contained in the 
    body of the job posting and add the weight of that keyword category to the total score.
@@ -16,11 +29,3 @@ Scoring method:
    score bonus to longer paragraphs of up to 1 point. Then divide the total score by the 
    number of paragraphs to not favor extremely long posts (or garbage from improper scraping).
 
-Dependencies:
- * pandas
- * BeautifulSoup
- 
-Usage:
- * Overall program flow is in handler.py.
- * If you want the service to email you, you'll need to set up your own Gmail credentials 
-   (https://developers.google.com/gmail/api/) or other email method.
