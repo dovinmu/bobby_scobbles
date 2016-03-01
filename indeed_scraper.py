@@ -5,7 +5,10 @@ import time
 import datetime
 import random
 from urllib.parse import urlparse
+import eventlet
+
 base_url = 'http://www.indeed.com'
+eventlet.monkey_patch()
 limit = 100
 locations = ['Seattle']
 
@@ -39,17 +42,15 @@ def scrape(queries, daysBack=1, test=False):
         print('Got %d jobs from %s' % (len(jobs), r.url))
         for job in jobs:
             url = base_url + job.find('a').get('href')
+            start = time.time()
             try:
-                rj = requests.get( url )
+                with eventlet.Timeout(10):
+                    rj = requests.get( url )
+                rj.text
             except:
-                #print('Could not get %s, trying again' % url)
                 print('failed to connect to %s' % url)
-                #try:
-                #    rj = requests.get( url )
-                #except requests.exceptions.RequestException:
-                #    print('Could not get %s, giving up' % url)
                 continue
-            #print('Got %s' % rj.url)
+            print('{0} seconds to get {1}'.format(time.time() - start, url))
             try:
                 html = BeautifulSoup(rj.text)
             except:

@@ -11,7 +11,7 @@ class ScraperThread(Thread):
         self.scraper = scraper
         self.queries = queries
         self.test = test
-        #print("Created scraper for {}".format(self.scraper.base_url))
+        print("Created scraper for {}".format(self.scraper.base_url))
 
     def run(self):
         print("Beginning to scrape from {}".format(self.scraper.base_url))
@@ -39,7 +39,7 @@ def wrangle(test=False):
         threads.append(ScraperThread(craigslist_scraper, queries, test))
         threads.append(ScraperThread(indeed_scraper, queries, test))
         for thread in threads:
-            thread.run()
+            thread.start()
         while threads:
             for i in range(len(threads)):
                 if not threads[i].is_alive():

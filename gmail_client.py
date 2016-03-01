@@ -10,23 +10,30 @@ import datetime
 import sys
 import traceback
 import json
-from sendEmail import CreateMessage,SendMessage
-from apiclient import discovery
 
-import oauth2client
-from oauth2client import client
-from oauth2client import tools
-
+force_test = False
+try:
+    from apiclient import discovery
+    import oauth2client
+    from oauth2client import client
+    from oauth2client import tools
+    from sendEmail import CreateMessage,SendMessage
+except:
+    force_test = True
+'''
 try:
     import argparse
     flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
     flags = None
+    '''
+try:
+    from gmail_info import FROM, APPLICATION_NAME
+except:
+    force_test = True
 
-FROM = 'Bob the Job Scobbler <bobthejobscobbler@gmail.com>'
 SCOPES = 'https://www.googleapis.com/auth/gmail.modify'
 CLIENT_SECRET_FILE = 'client_secret.json'
-APPLICATION_NAME = 'Bob the Job Scobbler'
 
 #def get_credentials():
 """Gets valid user credentials from storage.
@@ -49,7 +56,7 @@ def get_service():
 
     if not credentials or credentials.invalid:
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, scope=SCOPES)
-        flow.user_agent = APPLICATION_NAME        
+        flow.user_agent = APPLICATION_NAME
         if flags:
             credentials = tools.run_flow(flow, store, flags)
         else: # Needed only for compatability with Python 2.6
@@ -61,8 +68,8 @@ def get_service():
 
 def send_message(to, content):
     service = get_service()
-    message = CreateMessage('Bob the Job Scobbler', to, datetime.date.today().strftime('Jobs report for %A, %B %d, %Y'), content)
-    SendMessage(service, 'bob.the.job.scobbler@gmail.com', message)
+    message = CreateMessage(APPLICATION_NAME, to, datetime.date.today().strftime('Jobs report for %A, %B %d, %Y'), content)
+    SendMessage(service, FROM, message)
     print('Sent mail at ' + time.ctime() + ' to ' + to)
 
 def send_current_user(user=None):
@@ -76,8 +83,8 @@ def send_current_user(user=None):
             to = j['email'][0]
         send_message(to, content)
     except:
-        print('Could not send email for %s' % user)
-        #traceback.print_last()
+        print('Could not send email for user "%s"' % user)
+        print(content)
         return
     try:
         with open(user + '.to.be.sent') as f:
@@ -101,11 +108,7 @@ def send_all(test=False):
     os.chdir('..')
 
 if __name__ == "__main__":
+    test = force_test
     if len(sys.argv) > 1:
-        send_all(sys.argv[1] == "test")
-    else:
-        send_all()
-
-
-
-
+        test = sys.argv[1] == "test" or force_test
+    send_all(test)

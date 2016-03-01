@@ -4,6 +4,9 @@ import requests
 import time
 import datetime
 import random
+import eventlet
+
+eventlet.monkey_patch()
 base_url = 'http://seattle.craigslist.org'
 
 def scrape(queries, list_to_search='jjj', daysBack=1, test=False, return_df=False):
@@ -26,12 +29,15 @@ def scrape(queries, list_to_search='jjj', daysBack=1, test=False, return_df=Fals
         if date < today - daysBack:
             continue
         url = base_url + job.find('a', attrs={'class':'i'}).get('href')
+        start = time.time()
         try:
-            rj = requests.get( url )
+            with eventlet.Timeout(10):
+                rj = requests.get( url )
+            rj.text
         except:
             print('could not connect to %s' % url)
             continue
-        #print('Got %s' % rj.url)
+        print('{0} seconds to get {1}'.format(time.time() - start, url))
         raw = rj.text
         html = BeautifulSoup(raw, 'html.parser')
         try:

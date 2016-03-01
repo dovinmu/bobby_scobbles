@@ -1,4 +1,9 @@
-#TODO: web wrangling might need to be in a separate script file
+'''
+Control flow for the program.
+
+TODO: provide more granularity for errors and flexibility for using outside of a cronjob.
+'''
+
 import os
 import sys
 
@@ -43,7 +48,7 @@ except:
     print(e[0], fname, e[2].tb_lineno)
 os.chdir(wd_start)
 
-if not had_error:    
+if not had_error:
     print('~emailer~')
     try:
         import gmail_client
@@ -57,8 +62,5 @@ if not had_error:
 
 if had_error:
    print("Somebody has got to get these monkey flippin' errors off this Monday-to-Friday software!") #TODO send a special email
-else: 
+else:
     print('Completed with no errors, handler.py checking out')
-
-
-
